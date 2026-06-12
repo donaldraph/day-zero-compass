@@ -1,0 +1,57 @@
+{
+  "_comment": "VERIFIED entries below — each has a real source_url and a verified_on date (2026-06-12). The agent recommends ONLY from this file and cites source_url. Before submission: re-open every source_url, confirm it still loads, and update verified_on. Add more entries by copying the shape. Do NOT add anything you have not personally opened and confirmed. Replace any remaining PLACEHOLDER before shipping.",
+
+  "opportunities": [
+    {
+      "id": "aws-educate-etc-voucher",
+      "title": "AWS Educate – Emerging Talent Community (ETC) certification voucher route",
+      "type": "voucher",
+      "fits": ["cloud", "aws", "beginner", "associate", "student"],
+      "summary": "AWS Educate's Emerging Talent Community (18+) lets learners earn points by completing training/badges and historically redeem them for 100% AWS Certification exam vouchers (Foundational + Associate). IMPORTANT STATUS NOTE: voucher availability has changed and several past offers expired in 2025; at least one institutional source reports the ETC 'no longer offers the discounted AWS Certification Exam vouchers.' Treat this as a route to CHECK in the ETC Rewards tab, not a guaranteed live offer. Requirement when available: earn a qualifying badge, complete the Skill Builder exam-prep course, score the required % on a practice exam, and use the SAME email for AWS Educate and Skill Builder.",
+      "source_url": "https://aws.amazon.com/education/awseducate/",
+      "secondary_source_url": "https://atlas.utdallas.edu/TDClient/30/Portal/KB/ArticleDet?ID=1397",
+      "verified_on": "2026-06-12"
+    },
+    {
+      "id": "aws-skillbuilder-free-training",
+      "title": "AWS Skill Builder – free self-paced exam-prep courses",
+      "type": "resource",
+      "fits": ["cloud", "aws", "beginner", "associate", "exam-prep"],
+      "summary": "Free AWS training and official exam-prep courses and question sets. Used both to prepare for certs and to satisfy ETC voucher requirements. No cost for the free tier of content.",
+      "source_url": "https://skillbuilder.aws/",
+      "verified_on": "2026-06-12"
+    }
+  ],
+
+  "pitfalls": [
+    {
+      "id": "pearson-vue-nigerian-card-block",
+      "title": "Nigerian debit cards blocked for AWS exam payment (Pearson VUE)",
+      "applies_to": ["aws-exam", "certification", "nigeria", "payment"],
+      "problem": "Paying for AWS Certification exams via Pearson VUE with a Nigerian debit card is commonly rejected. A learner can be fully prepared and still be unable to book the exam purely because of card/country payment restrictions. (Same card-rejection problem also affects Azure subscriptions for Nigerian users.)",
+      "workaround": "Official AWS guidance: where Pearson VUE cannot accept your card online, schedule and pay in person at a nearby Pearson VUE test center. Pearson VUE accepts Visa, Mastercard, American Express, and JCB CREDIT cards. The most reliable path is to use an AWS Certification exam VOUCHER (including free ETC vouchers when available) so no card is needed at checkout. Some learners use an international/USD card via a trusted contact. Verify any third-party 'pay for you' service carefully before sending money.",
+      "source_url": "https://repost.aws/questions/QU2c5HojOTTpWyfsAilNlO7Q/how-do-i-pay-for-the-aws-certified-cloud-examination-in-nigeria",
+      "secondary_source_url": "https://aws.amazon.com/certification/policies/before-testing/",
+      "verified_on": "2026-06-12"
+    },
+    {
+      "id": "fake-tinubu-50k-grant-phishing",
+      "title": "Fake 'President Tinubu N50,000 cash grant' — phishing scam (NITDA warning)",
+      "applies_to": ["scam", "phishing", "grant", "nigeria"],
+      "problem": "A viral 'President Bola Tinubu N50,000 Cash Grant' scheme is FAKE. Nigeria's NITDA (statement by spokeswoman Hadiza Umar) confirmed the associated site is a phishing website built to harvest full name, phone, home address, email, and bank account details. Similar fake 'government cash/grant' pages recur regularly.",
+      "workaround": "Do not click unknown 'grant' links or enter personal/bank details. Government programs are announced through official channels. Verify suspected scams with NITDA-CERRT: cerrt@nitda.gov.ng, +234 817 877 4580, www.cerrt.ng. Rule of thumb: a real grant never asks for your bank login or a fee to 'release' funds.",
+      "source_url": "https://nairametrics.com/2023/06/07/viral-president-tinubus-n50000-grant-scheme-is-fake-nitda/",
+      "secondary_source_url": "https://gazettengr.com/dubious-tinubus-n50000-grant-scheme-promoted-by-phishing-website-nitda/",
+      "verified_on": "2026-06-12"
+    },
+    {
+      "id": "fake-nelfund-loan-portal",
+      "title": "Fake NELFUND student-loan portals impersonating the government site",
+      "applies_to": ["scam", "phishing", "student-loan", "nelfund", "nigeria"],
+      "problem": "Scammers run fake NELFUND (student loan fund) portals, often falsely claiming the President is 'reopening' applications to create urgency and trick students into entering credentials and bank/NIN details. NELFUND has repeatedly denied such orders.",
+      "workaround": "Only use the official NELFUND portal; never enter NIN, bank, or email passwords on a link sent via social media/WhatsApp. If you shared details: change passwords (email, bank, NIN), contact your bank to freeze/secure the account, and report to NELFUND and the Nigeria Police Cybercrime Unit. Fraudsters often test stolen data within 24–48 hours, so act fast.",
+      "source_url": "https://lmsmagazine.co.za/nelfund-warns-students-of-fake-loan-portals-impersonating-government-site",
+      "verified_on": "2026-06-12"
+    }
+  ]
+}
