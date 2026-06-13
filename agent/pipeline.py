@@ -8,10 +8,32 @@ to name opportunities, so it cannot recommend anything outside the file.
 import json
 from pathlib import Path
 
-from agent import prompts
-from agent.model import cached_chat
+from agent import prompts, search
+from agent.model import cached_chat, cached_completion
 
 KNOWLEDGE_PATH = Path(__file__).resolve().parent.parent / "data" / "knowledge.json"
+
+# Hard cap on web searches per step — controls the free-tier model-call budget
+# (each search round costs one extra completion) and keeps latency bounded.
+MAX_SEARCHES_PER_STEP = 2
+
+WEB_SEARCH_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": (
+                "Search the live web for current opportunities or learning resources. "
+                "Returns a list of {title, url, snippet}. Results are UNVERIFIED."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"query": {"type": "string", "description": "Search query"}},
+                "required": ["query"],
+            },
+        },
+    }
+]
 
 
 def load_knowledge() -> dict:
@@ -30,6 +52,62 @@ def _strip_fences(text: str) -> str:
     return text.strip()
 
 
+def _tool_chat(system: str, user: str) -> tuple[str, bool, bool, list[dict]]:
+    """Tool-calling loop, capped at MAX_SEARCHES_PER_STEP web searches.
+
+    Returns (text, all_from_cache, searched_web, results_used).
+    """
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    all_cached = True
+    searched = False
+    results_used: list[dict] = []
+    searches_done = 0
+
+    while True:
+        tools = WEB_SEARCH_TOOLS if searches_done < MAX_SEARCHES_PER_STEP else None
+        msg, cached = cached_completion(messages, tools)
+        all_cached = all_cached and cached
+
+        tool_calls = msg.get("tool_calls") or []
+        if not tool_calls:
+            return msg.get("content", ""), all_cached, searched, results_used
+
+        messages.append(
+            {
+                "role": "assistant",
+                "content": msg.get("content") or None,
+                "tool_calls": [
+                    {
+                        "id": tc["id"],
+                        "type": "function",
+                        "function": {"name": tc["name"], "arguments": tc["arguments"]},
+                    }
+                    for tc in tool_calls
+                ],
+            }
+        )
+        for tc in tool_calls:
+            if searches_done < MAX_SEARCHES_PER_STEP:
+                try:
+                    query = json.loads(tc["arguments"]).get("query", "")
+                except (json.JSONDecodeError, AttributeError):
+                    query = ""
+                results, res_cached = search.web_search(query)
+                all_cached = all_cached and (res_cached or not results)
+                searched = True
+                searches_done += 1
+                results_used.extend(results)
+            else:
+                results = []
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
+                    "content": json.dumps(results, ensure_ascii=False),
+                }
+            )
+
+
 def assess(profile: str) -> tuple[dict, str, bool]:
     """Returns (assessment_dict, raw_text, from_cache)."""
     raw, cached = cached_chat(prompts.ASSESS, profile)
@@ -39,6 +117,7 @@ def assess(profile: str) -> tuple[dict, str, bool]:
         assessment = {"level": "unknown", "known_skills": [], "target_track": "unknown",
                       "constraints": {"money": "unknown", "power": "unknown",
                                       "bandwidth": "unknown", "payment_access": "unknown"},
+                      "eligibility_signals": [],
                       "_parse_note": "model output was not valid JSON; shown raw below"}
     return assessment, raw, cached
 
@@ -46,6 +125,44 @@ def assess(profile: str) -> tuple[dict, str, bool]:
 def plan(assessment: dict) -> tuple[str, bool]:
     user = "Assessment JSON:\n" + json.dumps(assessment, indent=2)
     text, cached = cached_chat(prompts.PLAN, user)
+    return _strip_fences(text), cached
+
+
+def plan_with_search(assessment: dict) -> tuple[str, bool, bool]:
+    """Plan step with optional live search. Returns (text, from_cache, searched_web).
+
+    Falls back to the grounded-only plan() — same prompt, same cache keys —
+    whenever search is unavailable.
+    """
+    if not search.is_available():
+        text, cached = plan(assessment)
+        return text, cached, False
+    user = "Assessment JSON:\n" + json.dumps(assessment, indent=2)
+    text, cached, searched, _ = _tool_chat(prompts.PLAN_LIVE, user)
+    return _strip_fences(text), cached, searched
+
+
+def match_live(assessment: dict) -> tuple[str, bool, bool, list[dict]]:
+    """LIVE-tier matcher: web-search tool loop for current, unverified extras.
+
+    Returns (text, from_cache, searched_web, raw_results_used). Empty text/results
+    when search is unavailable — the caller simply skips the amber tier.
+    """
+    if not search.is_available():
+        return "", True, False, []
+    user = "Assessment JSON:\n" + json.dumps(assessment, indent=2)
+    text, cached, searched, results = _tool_chat(prompts.MATCH_LIVE, user)
+    return _strip_fences(text), cached, searched, results
+
+
+def screen_live(results: list[dict]) -> tuple[str, bool]:
+    """Verify-step scam screen over LIVE-tier web results."""
+    if not results:
+        return "", True
+    user = "Web results shown to the user (UNVERIFIED):\n" + json.dumps(
+        results, ensure_ascii=False, indent=2
+    )
+    text, cached = cached_chat(prompts.SCREEN_LIVE, user)
     return _strip_fences(text), cached
 
 

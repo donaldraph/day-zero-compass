@@ -66,6 +66,55 @@ def _write_cache(key: str, content: str) -> None:
     )
 
 
+def _completion_key(messages: list, tools) -> str:
+    payload = json.dumps(
+        {"model": MODEL, "messages": messages, "tools": tools or []}, sort_keys=True
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def cached_completion(messages: list, tools=None) -> tuple[dict, bool]:
+    """One chat completion that may request tool calls, through the disk cache.
+
+    Returns ({"content": str, "tool_calls": [{"id", "name", "arguments"}]}, from_cache).
+    Cached per full message list, so every round of a tool loop replays free —
+    a rehearsed demo costs zero quota as long as the search cache is warm too.
+    """
+    key = _completion_key(messages, tools)
+    path = _cache_path(key)
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))["message"], True
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    try:
+        client = OpenAI(base_url=ENDPOINT, api_key=_get_token())
+        kwargs = {"model": MODEL, "messages": messages, "temperature": 0.2, "max_tokens": 1200}
+        if tools:
+            kwargs["tools"] = tools
+        resp = client.chat.completions.create(**kwargs)
+        msg = resp.choices[0].message
+        out = {
+            "content": msg.content or "",
+            "tool_calls": [
+                {"id": tc.id, "name": tc.function.name, "arguments": tc.function.arguments}
+                for tc in (msg.tool_calls or [])
+            ],
+        }
+    except ModelError:
+        raise
+    except Exception as exc:
+        raise ModelError(f"Model call failed: {exc}") from exc
+
+    CACHE_DIR.mkdir(exist_ok=True)
+    path.write_text(
+        json.dumps({"model": MODEL, "message": out}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return out, False
+
+
 def cached_chat(system: str, user: str) -> tuple[str, bool]:
     """Run one chat completion. Returns (content, served_from_cache)."""
     key = _cache_key(system, user)

@@ -1,37 +1,77 @@
 {
-  "_comment": "VERIFIED entries below — each has a real source_url and a verified_on date (2026-06-12). The agent recommends ONLY from this file and cites source_url. Before submission: re-open every source_url, confirm it still loads, and update verified_on. Add more entries by copying the shape. Do NOT add anything you have not personally opened and confirmed. Replace any remaining PLACEHOLDER before shipping.",
+  "_comment": "ALL-MICROSOFT verified knowledge base. Every entry has a real source_url and verified_on date (2026-06-12). The agent recommends from this VERIFIED tier and cites source_url. Web-search results are a SEPARATE flagged/unverified tier handled in code. Before submission: re-open every source_url, confirm it loads, refresh verified_on. Do not add anything you have not personally opened.",
 
   "opportunities": [
     {
-      "id": "aws-educate-etc-voucher",
-      "title": "AWS Educate – Emerging Talent Community (ETC) certification voucher route",
-      "type": "voucher",
-      "fits": ["cloud", "aws", "beginner", "associate", "student"],
-      "summary": "AWS Educate's Emerging Talent Community (18+) lets learners earn points by completing training/badges and historically redeem them for 100% AWS Certification exam vouchers (Foundational + Associate). IMPORTANT STATUS NOTE: voucher availability has changed and several past offers expired in 2025; at least one institutional source reports the ETC 'no longer offers the discounted AWS Certification Exam vouchers.' Treat this as a route to CHECK in the ETC Rewards tab, not a guaranteed live offer. Requirement when available: earn a qualifying badge, complete the Skill Builder exam-prep course, score the required % on a practice exam, and use the SAME email for AWS Educate and Skill Builder.",
-      "source_url": "https://aws.amazon.com/education/awseducate/",
-      "secondary_source_url": "https://atlas.utdallas.edu/TDClient/30/Portal/KB/ArticleDet?ID=1397",
+      "id": "microsoft-learn-free-training",
+      "title": "Microsoft Learn — free self-paced training, learning paths & practice assessments",
+      "type": "resource",
+      "fits": ["cloud", "azure", "ai", "security", "beginner", "exam-prep", "student"],
+      "summary": "Microsoft's free, self-paced learning platform: structured learning paths, hands-on modules, and free practice assessments aligned to certification exams. Completely free, no card required — the natural starting point and the prep ground for the AZ-900 / AI-900 / SC-900 / DP-900 / PL-900 Fundamentals certs.",
+      "source_url": "https://learn.microsoft.com/training/",
       "verified_on": "2026-06-12"
     },
     {
-      "id": "aws-skillbuilder-free-training",
-      "title": "AWS Skill Builder – free self-paced exam-prep courses",
+      "id": "microsoft-virtual-training-days-voucher",
+      "title": "Microsoft Virtual Training Days — free / discounted Fundamentals exam voucher",
+      "type": "voucher",
+      "fits": ["cloud", "azure", "ai", "security", "beginner", "student", "certification"],
+      "summary": "Free, live, instructor-led Microsoft online events. Attending the full event earns an exam voucher for a Fundamentals certification — commonly AZ-900 (Azure), AI-900 (AI), SC-900 (Security), DP-900 (Data), PL-900 (Power Platform). Open to ANYONE — no employer, student status, or card required. STATUS / HONEST NOTES (verify each time): some sessions grant a 100% free voucher, others a 50% discount — check the specific event's email; the voucher is applied to the Microsoft Learn profile of the email you registered with, usually within ~5 business days; vouchers commonly expire ~90 days after issue, so book the exam early; free vouchers do not cover retakes. This voucher route REMOVES the Nigerian-card barrier because no card is needed at exam checkout.",
+      "source_url": "https://www.microsoft.com/trainingdays",
+      "secondary_source_url": "https://learn.microsoft.com/credentials/support/redeem-discounts",
+      "verified_on": "2026-06-12"
+    },
+    {
+      "id": "microsoft-cloud-skills-challenge",
+      "title": "Microsoft Cloud Skills Challenge ('30 Days to Learn It'-style campaigns) — free/discounted voucher",
+      "type": "voucher",
+      "fits": ["cloud", "azure", "ai", "beginner", "self-paced", "certification"],
+      "summary": "Time-limited Microsoft Learn challenge campaigns where completing the modules earns a free or discounted certification exam voucher. Self-paced within the campaign window. STATUS: these are periodic — availability depends on whether a challenge is currently live, so check the official Microsoft Learn challenges page for an active campaign before relying on it.",
+      "source_url": "https://learn.microsoft.com/training/challenges",
+      "verified_on": "2026-06-12"
+    },
+    {
+      "id": "github-foundations-certification",
+      "title": "GitHub Foundations / GitHub certifications + free GitHub Skills training",
       "type": "resource",
-      "fits": ["cloud", "aws", "beginner", "associate", "exam-prep"],
-      "summary": "Free AWS training and official exam-prep courses and question sets. Used both to prepare for certs and to satisfy ETC voucher requirements. No cost for the free tier of content.",
-      "source_url": "https://skillbuilder.aws/",
+      "fits": ["git", "github", "devops", "beginner", "developer", "student"],
+      "summary": "GitHub's official certification track (GitHub Foundations is the entry-level cert) plus GitHub Skills — free, interactive, hands-on courses for learning Git/GitHub. Training is free; the certification exam has a fee, though GitHub periodically runs free-voucher campaigns — verify current campaigns rather than assuming one is live. Strong fit for a learner already using GitHub/Copilot.",
+      "source_url": "https://resources.github.com/learn/certifications/",
+      "secondary_source_url": "https://skills.github.com/",
+      "verified_on": "2026-06-12"
+    },
+    {
+      "id": "github-student-developer-pack",
+      "title": "GitHub Student Developer Pack — free pro developer tools (STUDENTS ONLY)",
+      "type": "resource",
+      "fits": ["student", "developer", "cloud", "azure", "github", "beginner"],
+      "eligibility": "Verified students only. Requires proof of enrolment / student status (school email or document).",
+      "summary": "Free bundle of professional developer tools for verified students: Microsoft Azure credits, GitHub Copilot, JetBrains IDEs, MongoDB Atlas credits, DigitalOcean $200 platform credit, a free .dev/.app domain, and more. Apply at education.github.com/pack. HONEST CAVEATS: offers change frequently and may require annual re-verification; 'no credit card' applies to the GitHub pack itself, not necessarily to Azure (Azure keeps its own identity/billing rules); pack approval does NOT automatically grant Azure for Students. Surface this ONLY to people who indicate they are students.",
+      "source_url": "https://education.github.com/pack",
+      "verified_on": "2026-06-12"
+    },
+    {
+      "id": "azure-for-students",
+      "title": "Azure for Students — $100 Azure credit + free services, no card (STUDENTS ONLY)",
+      "type": "resource",
+      "fits": ["student", "cloud", "azure", "beginner"],
+      "eligibility": "Verified students only. Usually needs a school-issued email/domain, or verification via the GitHub Student Developer Pack.",
+      "summary": "Gives verified students USD $100 in Azure credit plus free access to popular cloud services for a year, with no credit card required. HONEST CAVEATS (important for Nigerian students): eligibility is region-dependent — some regions only qualify for 'Azure for Students Starter' (NO $100 credit) or are blocked entirely; a personal Gmail/Hotmail alone often does NOT qualify (a school-issued email or the GitHub pack route is usually needed); Azure may still ask for a card for identity verification or pay-as-you-go beyond the credit. Surface ONLY to students, and include the eligibility caveat.",
+      "source_url": "https://azure.microsoft.com/free/students/",
+      "secondary_source_url": "https://signup.azure.com/studentverification?offerType=1",
       "verified_on": "2026-06-12"
     }
   ],
 
   "pitfalls": [
     {
-      "id": "pearson-vue-nigerian-card-block",
-      "title": "Nigerian debit cards blocked for AWS exam payment (Pearson VUE)",
-      "applies_to": ["aws-exam", "certification", "nigeria", "payment"],
-      "problem": "Paying for AWS Certification exams via Pearson VUE with a Nigerian debit card is commonly rejected. A learner can be fully prepared and still be unable to book the exam purely because of card/country payment restrictions. (Same card-rejection problem also affects Azure subscriptions for Nigerian users.)",
-      "workaround": "Official AWS guidance: where Pearson VUE cannot accept your card online, schedule and pay in person at a nearby Pearson VUE test center. Pearson VUE accepts Visa, Mastercard, American Express, and JCB CREDIT cards. The most reliable path is to use an AWS Certification exam VOUCHER (including free ETC vouchers when available) so no card is needed at checkout. Some learners use an international/USD card via a trusted contact. Verify any third-party 'pay for you' service carefully before sending money.",
-      "source_url": "https://repost.aws/questions/QU2c5HojOTTpWyfsAilNlO7Q/how-do-i-pay-for-the-aws-certified-cloud-examination-in-nigeria",
-      "secondary_source_url": "https://aws.amazon.com/certification/policies/before-testing/",
+      "id": "nigerian-card-blocked-microsoft-pearson",
+      "title": "Nigerian cards blocked for Microsoft/Azure & exam (Pearson VUE) payments",
+      "applies_to": ["microsoft-exam", "azure", "certification", "nigeria", "payment"],
+      "problem": "Nigerian debit/Verve cards are commonly rejected for Microsoft Azure subscriptions and for exam payment on Pearson VUE (which delivers Microsoft certification exams). Prepaid/virtual cards are often not accepted, and Azure is sold in Nigeria via partners rather than directly — so a fully-prepared learner can still be blocked at checkout purely by card/country restrictions.",
+      "workaround": "Best path: earn a FREE exam voucher via a Microsoft Virtual Training Day or Cloud Skills Challenge — a voucher needs no card at checkout, sidestepping the barrier entirely. For Microsoft Learn training itself, no payment is required. Where a card is unavoidable, Pearson VUE accepts Visa/Mastercard/Amex/JCB credit cards and you can pay/schedule in person at a nearby test center. Verify any third-party 'pay for you' service very carefully before sending money.",
+      "source_url": "https://learn.microsoft.com/en-us/answers/questions/2130062/i-have-a-challenge-using-the-azure-subscription-du",
+      "secondary_source_url": "https://learn.microsoft.com/en-us/answers/questions/2081888/issue-with-accepting-payment-method-with-a-nigeria",
       "verified_on": "2026-06-12"
     },
     {
