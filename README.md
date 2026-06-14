@@ -1,122 +1,76 @@
-# 🛡️ Day Zero Compass
+# Day Zero Compass
 
-**Is this opportunity real?** Paste any "opportunity" you got on WhatsApp — a scholarship, grant, job, or link — and find out if it's real or a scam, *why*, and what to do instead. Built for the real plague of forwarded scams hitting early-stage tech learners in underserved Southeast Nigeria.
+I'm the founder of Day Zero, a builders' community in Southeast Nigeria. This region is marginalised. One of the things people here lack most is clarity and direction. And because real opportunity is scarce, scammers move in to take advantage of people hunting for it. Fake grants, fake scholarships, fake jobs, forwarded on WhatsApp, made to steal the little someone has.
 
-A grounded, cited, scam-aware AI guidance agent — starting from day zero.
+That's why I built Day Zero Compass. I didn't build it only for the Day Zero community. It's for anyone looking for clarity and a real path forward.
 
-*Built for the Microsoft Agents League Hackathon (Creative Apps track).*
+*Built for the Microsoft Agents League Hackathon.*
 
-## Two modes
+## What it does
 
-| Mode | What it does |
-|---|---|
-| 🛡️ **Check if an opportunity is real** *(default — hero)* | Paste a suspicious message/link/offer and get a clear verdict (🔴/🟠/🟢) with the specific red flags, what to do, and a real verified alternative. |
-| 🧭 **Plan my learning path** *(secondary)* | The original Assess → Plan → Match → Verify advisor that builds a grounded, cited 90-day learning path. |
+You paste in something you're unsure about. A scholarship, a grant, a job, a link someone forwarded you. It tells you whether it looks real or like a scam, why it thinks so, and what to do next. If the thing you were hoping for is real (free training, a certificate, a way into tech), it points you to a genuine version instead.
 
-## The problem
+There's a second mode: a learning-path planner. You say where you're starting and what you're aiming at, and it writes a plan for your actual situation, not a generic "learn to code" list.
 
-A motivated 19-year-old in Aba or Owerri who wants to get into cloud engineering faces three walls at once:
+Two things it will not do:
 
-1. **No map.** Generic "learn to code" advice ignores their reality: shared devices, daily power cuts, expensive data, no money for courses.
-2. **Invisible access barriers.** Real ones — for example, Pearson VUE's payment flow rejecting many Nigerian debit cards, which silently blocks students from sitting AWS certification exams even when they've earned a voucher.
-3. **Scams.** Fake scholarships and pay-to-apply "opportunities" specifically target exactly this population.
+- It never gives a clean bill of health. Green means "no red flags found, now go confirm on the official site yourself." It never says "this is safe."
+- It never makes up an opportunity. No invented scholarships, no invented deadlines, no invented links.
 
-Generic chatbots make this *worse*: they hallucinate scholarships that don't exist and deadlines that were never real. For a student whose entire budget is one application fee, a hallucinated opportunity isn't an inconvenience — it's a catastrophe.
+## How it works
 
-## 🛡️ Scam check (hero feature)
+The scam check weighs three kinds of evidence.
 
-The headline use case. A learner pastes the message, link, or offer they're unsure about into one box. The agent then runs three focused, cached GPT-4o steps (reusing the same model client, disk cache, capped tool loop, and Tavily search as the advisor):
+**Structural reasoning.** It reads the message the way a careful person would. Who is it claiming to be? What domain is the link on? What is it actually asking you to hand over? Your BVN, your bank login, or an upfront "processing fee" is a real warning sign. Filling a form on an official microsoft.com or aka.ms page is not. This is what lets it catch a scam it has never seen. I tested it with a made-up "Shell Nigeria youth grant" that isn't in any list, and it called it red on the structure alone: lookalike domain, asks for your BVN, wants a fee first.
 
-1. **Extract** — parses the pasted text into strict JSON: the claimed offer, the apparent sender/brand, any URL/domain, and crucially *what it asks you to do or provide* (bank details, BVN, NIN, password, OTP, an upfront fee, click a link…). It invents nothing.
-2. **Check** — assesses the extraction against three sources: the **known scams in `data/knowledge.json`** (e.g. the fake Tinubu N50,000 grant, fake NELFUND portals), **scam heuristics** (requests for sensitive data, upfront fee to "release" funds, urgency/"reopening now", unofficial/look-alike domain, government/brand impersonation, forwarded-chain signals), and an **optional live web cross-check** (Tavily — the unverified tier, always labeled).
-3. **Verdict + real alternative** — returns one of three verdicts with reasons, confidence, and a red-flags checklist, then redirects the user to the closest **verified, free** opportunity from the knowledge base (eligibility-gated, cited).
+**Foundry IQ (Azure AI Search).** Documented scams and real, checked programs live in a small knowledge base. The agent retrieves from it to confirm a match and cite the source. If your message matches a known scam, it shows you where that's documented. If it matches a verified program, it says so and links the official page. The knowledge base is never the gate, though. Something being absent from it means nothing. The verdict still has to stand on the reasoning and the live check.
 
-### The three-verdict model
+**Tavily live search.** When there's an official-looking link or a named program, it can go check the real web to see whether the program actually exists, and pull out a deadline if it finds one. Web findings are labelled as web findings. They count for less than the checked knowledge base, and a scholarship never comes from there.
 
-- 🔴 **LIKELY A SCAM** — matches a known scam or hits strong red flags. Lists the specific flags, **cites the known-scam `source_url`**, and tells the user not to engage and how to report it (NITDA-CERRT: `cerrt@nitda.gov.ng`, +234 817 877 4580, [www.cerrt.ng](https://www.cerrt.ng); for loans, NELFUND + Police Cybercrime).
-- 🟠 **SUSPICIOUS / CAN'T CONFIRM** — some red flags or unverifiable. Tells the user to treat it as unsafe until confirmed, and exactly how to verify it themselves. **Chosen whenever the call is uncertain** — caution wins.
-- 🟢 **NO RED FLAGS FOUND** — no known-scam match and no strong red flags.
+Grounding on Foundry IQ is most of what keeps it honest. The model is never asked "what scholarships exist?" It gets handed a fixed, human-checked list and told to work from that. That's how we hold down hallucination.
 
-### The never-give-false-reassurance rule (the whole point)
+If a key is missing or a service is down, it falls to the next layer and keeps going. No Tavily key: reasoning plus the knowledge base. No Azure: it reads the knowledge file directly. Every check is cached on disk, so running the same one again costs nothing.
 
-A confident green light on a real scam is the worst possible failure, so:
+### The three verdicts
 
-- 🟢 **always** reads as *"no red flags found — still confirm on the official site yourself,"* and **never** as "this is safe / legit / go ahead." This is enforced both in the `SCAM_VERDICT` prompt **and** in code: `agent/verifier._normalize_verdict()` scrubs any reassuring wording ("safe", "legit", "genuine"…) from a green summary and forces the safe phrasing.
-- The agent **never fabricates a scam** either — it won't invent red flags that aren't in the text; when torn between 🟠 and 🟢 it picks 🟠.
-- The code-side backstop also **downgrades** any 🟢 that somehow carries red flags or a known-scam match (→ 🟠 or 🔴) — it only ever moves toward caution, never toward reassurance.
+- 🔴 **Likely a scam.** Matches a documented scam, or asks for sensitive data or a fee, or impersonates a brand, or sits on a fake domain. It tells you not to engage and how to report it (NITDA-CERRT: `cerrt@nitda.gov.ng`, +234 817 877 4580, www.cerrt.ng; for student loans, NELFUND and the Police Cybercrime unit).
+- 🟠 **Can't confirm.** Some warning signs, or nothing solid to check against. Treat it as unsafe until you've confirmed it yourself.
+- 🟢 **No red flags found.** Still go and confirm on the official site.
 
-If there's no Tavily key (or search fails/quota hits), the check runs on the knowledge base + heuristics only, with a calm notice. Every model call and search is disk-cached, so a demo replay costs zero quota.
+The green rule lives in code, not only the prompt. `agent/verifier._normalize_verdict()` strips words like "safe" and "legit" out of a green result, and a known-scam match forces the verdict to red. When it's torn, it picks amber, not green.
 
-## Grounding: Foundry IQ (Azure AI Search agentic retrieval)
+## The learning-path planner
 
-The verified knowledge layer is **Foundry IQ — Azure AI Search**. On first run, `agent/foundry_iq.py` indexes `data/knowledge.json` (opportunities + pitfalls) into an Azure AI Search index, registers it as a **Knowledge Source**, and — when an Azure OpenAI model is configured — builds a **Knowledge Base** for agentic retrieval. Both the advisor's **Match** step and the scam-verifier's **Check** step now pull their verified grounding through `kb_retrieve(query)`, which returns cited `{content, source_url, id}` results, instead of reading the JSON file directly.
+This mode runs four steps you can watch: Assess, Plan, Match, Verify. It reads your level, skills, goal, and your real constraints (money, power, bandwidth, device, payment access, whether you're a student), then writes the plan around them. Power cuts and only a phone? It goes offline-first: download the modules while you have Wi-Fi, study them off-grid, take the free-voucher route so a card isn't needed. Own laptop and steady power? It moves faster. It cites real resources from the same checked knowledge base, and it won't show student-only offers unless you said you're a student.
 
-Retrieval degrades through three tiers so the app **never breaks**:
+## Why this exists
 
-1. **`foundry-agentic`** — Knowledge Base agentic retrieval (LLM-planned, needs an Azure OpenAI model).
-2. **`foundry-search`** — semantic/keyword search over the Azure AI Search index (works with just the search endpoint + key).
-3. **`local`** — reads `data/knowledge.json` directly (the original behavior).
+The barriers here aren't theory. Nigerian cards get rejected at exam checkout and for Azure. You can earn a voucher and still get stopped at the till, for no reason other than where your card is from.
 
-If `AZURE_SEARCH_ENDPOINT` / `AZURE_SEARCH_API_KEY` are missing or any Azure call fails, retrieval falls back to the local tier with a calm notice — the deployed grounded version is the safety net. Config is read from env first, then `st.secrets` (same pattern as `GITHUB_TOKEN`). Indexing runs once per `knowledge.json` change, and every retrieval is disk-cached, so demo replays cost zero Azure quota. The **verified vs. amber "Live web" two-tier UI and the citation discipline are unchanged** — Foundry IQ only swaps *where* the verified tier is retrieved from.
+It happened to me while I was building this. I went to create an Azure subscription and was told I wasn't eligible. That's the exact exclusion this project is about: people doing the work and getting shut out at the last step. So the tool leans on routes that don't need a foreign card, and it's honest about where the walls are.
 
-```bash
-export AZURE_SEARCH_ENDPOINT=https://<your-service>.search.windows.net
-export AZURE_SEARCH_API_KEY=<admin-key>
-# optional — enables the agentic Knowledge Base tier:
-export AZURE_OPENAI_ENDPOINT=https://<your-aoai>.openai.azure.com
-export AZURE_OPENAI_DEPLOYMENT=<chat-model-deployment>
-export AZURE_OPENAI_API_KEY=<aoai-key>
-```
+## Microsoft IQ integration
 
-## How the advisor works
+The grounding layer is Foundry IQ on Azure AI Search. On first run, `agent/foundry_iq.py` indexes `data/knowledge.json` into a search index, registers it as a Knowledge Source, and (when an Azure OpenAI model is configured) builds a Knowledge Base for agentic retrieval. Both the scam Check step and the planner's Match step pull cited grounding through `kb_retrieve()`.
 
-In **Plan my learning path** mode, the student enters a short free-form profile. The agent then runs **four visible, sequential steps** — each a separate GPT-4o call with its own focused system prompt:
-
-| Step | What it does |
-|---|---|
-| 🔍 **Assess** | Parses the profile into structured JSON: level, skills, target track, and constraints (money, power, bandwidth, payment access). Extraction only — no advice, no invention. |
-| 🗺️ **Plan** | Produces a sequenced, realistic next-90-days learning path tuned to the level and constraints (free, low-bandwidth resources preferred). |
-| 🎯 **Match** | Recommends opportunities **only from the verified knowledge base** — a human-checked list of vouchers, scholarships, and resources retrieved via **Foundry IQ (Azure AI Search)** — citing each entry's `id` and `source_url`, and gating eligibility-restricted entries (e.g. student-only offers) on what the person actually stated. If nothing fits: "No verified match found." May then add a **separate, amber-flagged "Live" tier** of web-search finds — never mixed with the verified tier. |
-| 🛡️ **Verify** | A safety pass: surfaces known scams and access pitfalls relevant to this student (with documented workarounds), screens every Live-tier web result against scam heuristics, and teaches them how to verify any opportunity themselves. |
-
-![Architecture](architecture.png)
-
-## Live web search with a verification spine
-
-The agent can call a real `web_search` tool (Tavily) during the Plan and Match steps, via GPT-4o function calling. To keep the no-fabrication guarantee intact, everything the user sees lives in one of **two strictly separated tiers**:
-
-- ✅ **Verified tier** — entries from `data/knowledge.json`, human-checked, shown in green with `id` + `source_url` citations. This is the only tier ever presented as trusted.
-- 🌐 **Live tier** — web-search results, shown in amber, always labeled *"found online — verify yourself before acting"*, with the result URL. The Verify step screens every live result against scam heuristics (payment/bank-detail requests, look-alike domains, urgency language, brand/government impersonation) and flags suspicious ones with a reason.
-
-A web result is **never** rendered with verified styling, and if the tiers conflict, the verified tier wins. Tool calls are hard-capped at 2 searches per step, and both search results and model calls are disk-cached. If `TAVILY_API_KEY` is missing or search fails, the app falls back cleanly to the grounded knowledge-base-only behavior with a calm notice — the deployed grounded version is the safety net.
-
-## What this agent will NOT do
-
-This is the core of the project:
-
-- ❌ It will **never invent** a scholarship, voucher, deadline, or URL. The Match and Verify steps are given *only* the entries in the human-verified knowledge file — the model is never asked an open-ended "what opportunities exist?" question.
-- ✅ Every recommendation **cites its source** (`id` + `source_url` from the knowledge file).
-- 🙅 If nothing in the knowledge base fits, it **says so plainly** instead of filling the gap.
-- 🌐 It **never presents an unverified web result as confirmed** — live-search finds are always amber-flagged, URL-attributed, and scam-screened before display.
-- 🎓 It **never recommends eligibility-gated offers** (e.g. student-only programs) to someone who gave no signal they qualify — at most a conditional "if you're a student…" pointer.
-- 🔎 It always ends with **"verify it yourself"** guidance — official domains only, never pay to apply.
-
-This is enforced in the system prompts **and** in code: the Match and verifier Check steps are grounded exclusively in the verified knowledge base — retrieved via **Foundry IQ (Azure AI Search)**, or from `data/knowledge.json` directly when Azure isn't configured. Either way the model only ever sees a fixed, human-checked candidate list.
+Retrieval has three tiers and falls through them so nothing breaks: the agentic Knowledge Base, then semantic search over the index, then the local JSON file. Re-indexing runs when the knowledge file changes, deletions included.
 
 ## Stack
 
-Deliberately boring and reliable:
+Plain and unfashionable on purpose.
 
-- **Python + Streamlit** — UI and orchestration
-- **`openai` SDK → GitHub Models** (`https://models.github.ai/inference`, model `openai/gpt-4o`) — free tier
-- **Foundry IQ — Azure AI Search** (`azure-search-documents`) — agentic retrieval over the indexed knowledge base, with citations; optional (`AZURE_SEARCH_ENDPOINT` / `AZURE_SEARCH_API_KEY`), with clean fallback to local `knowledge.json` grounding when absent
-- **Tavily** (`tavily-python`) — real web search as a GPT-4o tool, free tier; optional (`TAVILY_API_KEY`), with clean fallback to grounded-only mode when absent
-- **Disk cache** (`.cache/`, SHA-256 of each prompt and search query) — every model call *and* web search is cached, so the demo re-runs without burning the ~50 req/day free-tier quota. A "served from cache" badge shows when a result is cached.
-- **`data/knowledge.json`** — the human-verified grounding file
+- Python and Streamlit for the app.
+- GitHub Models (`openai/gpt-4o`) for the model calls, free tier.
+- Azure AI Search (`azure-search-documents`) for the Foundry IQ grounding, with cited results.
+- Tavily (`tavily-python`) for live web search, optional.
+- A disk cache (`.cache/`, keyed by a hash of each prompt and query), so re-runs cost no quota.
+- `data/knowledge.json`, the human-checked list of scams and real programs.
 
-No frameworks, no vector DB, no containers.
+No vector database, no agent framework, no containers.
 
-**Built with Microsoft:** [GitHub Copilot](https://github.com/features/copilot) for AI-assisted development, and [GitHub Models](https://docs.github.com/en/github-models) for runtime inference (GPT-4o) — both Microsoft.
+## Architecture
+
+![Architecture](architecture.png)
 
 ## Run it locally
 
@@ -124,22 +78,26 @@ No frameworks, no vector DB, no containers.
 git clone <this-repo> && cd day-zero-compass
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-export GITHUB_TOKEN=<your-token>   # see below
-export TAVILY_API_KEY=<optional>   # enables the Live web-search tier; omit for grounded-only mode
+export GITHUB_TOKEN=<your-token>
 streamlit run app.py
 ```
 
-### Getting a GitHub Models token
+Optional keys turn on the other layers:
 
-1. Go to GitHub → **Settings → Developer settings → Fine-grained personal access tokens**.
-2. Create a token with the **`models:read`** permission (under Account permissions → Models).
-3. `export GITHUB_TOKEN=github_pat_...`
-4. Sanity-check it: `python test_model.py` should print a one-line model response.
+```bash
+export AZURE_SEARCH_ENDPOINT=https://<your-service>.search.windows.net
+export AZURE_SEARCH_API_KEY=<admin-key>
+export TAVILY_API_KEY=<your-key>
+# optional, enables the agentic Knowledge Base tier:
+export AZURE_OPENAI_ENDPOINT=https://<your-aoai>.openai.azure.com
+export AZURE_OPENAI_DEPLOYMENT=<chat-model-deployment>
+export AZURE_OPENAI_API_KEY=<aoai-key>
+```
 
-On Streamlit Community Cloud, set `GITHUB_TOKEN` in the app's **Secrets** instead.
+Keys are read from the environment first, then Streamlit secrets, so the same names work locally and on Streamlit Cloud. For the GitHub Models token: GitHub, Settings, Developer settings, Fine-grained personal access tokens, give it the `models:read` permission, export it as `GITHUB_TOKEN`. The free tier is about 50 requests a day, which is why everything is cached.
 
-> **Rate limits:** GitHub Models' free tier allows roughly 50 requests/day. Day Zero Compass caches every response on disk, so repeated runs of the same profile cost zero quota.
+## About Day Zero
 
-## Knowledge base
+Day Zero is a builders' community in Southeast Nigeria. We meet people where they are, often at zero, and help them build from there. This tool is one piece of that: a way to tell a real chance from someone trying to rob you, and to find the next real step.
 
-`data/knowledge.json` holds the verified opportunities and known pitfalls. Every entry carries a `source_url` and a `verified_on` date. **Entries are added by a human after checking the issuer's official site** — that manual verification step is a feature, not a gap.
+**From Nothing, To Everything.**
