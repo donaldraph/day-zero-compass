@@ -1,8 +1,8 @@
 # Day Zero Compass
 
-I'm the founder of Day Zero, a builders' community in Southeast Nigeria. This region is marginalised. One of the things people here lack most is clarity and direction. And because real opportunity is scarce, scammers move in to take advantage of people hunting for it. Fake grants, fake scholarships, fake jobs, forwarded on WhatsApp, made to steal the little someone has.
+I'm Donald Anyamba. I founded Day Zero, a builders' community in Southeast Nigeria. This region is marginalised. One of the things people here lack most is clarity and direction. And because real opportunity is scarce, scammers move in to take advantage of people hunting for it. Fake grants, fake scholarships, fake jobs, forwarded on WhatsApp, made to steal the little someone has.
 
-That's why I built Day Zero Compass. I didn't build it only for the Day Zero community. It's for anyone looking for clarity and a real path forward.
+That's why I built Day Zero Compass. It's named after the community but it's a separate thing, an app of its own. I didn't build it only for the Day Zero community. It's for anyone looking for clarity and a real path forward.
 
 *Built for the Microsoft Agents League Hackathon.*
 
@@ -98,6 +98,6 @@ Keys are read from the environment first, then Streamlit secrets, so the same na
 
 ## About Day Zero
 
-Day Zero is a builders' community in Southeast Nigeria. We meet people where they are, often at zero, and help them build from there. This tool is one piece of that: a way to tell a real chance from someone trying to rob you, and to find the next real step.
+Day Zero is a builders' community in Southeast Nigeria. We meet people where they are, often at zero, and help them build from there. Day Zero Compass is one piece of that: a way to tell a real chance from someone trying to rob you, and to find the next real step.
 
 **From Nothing, To Everything.**
