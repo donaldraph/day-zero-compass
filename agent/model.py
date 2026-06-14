@@ -21,6 +21,31 @@ class ModelError(Exception):
     """Raised when the model call fails and no cached result exists."""
 
 
+class ContentFilterError(ModelError):
+    """Raised when the model rejects the input via its content/safety filter.
+
+    Common for a scam-checker: pasted scam text can trip Azure OpenAI's
+    responsible-AI filter (jailbreak/violence false-positives). Distinct so the
+    UI can show a 'rephrase' message instead of a rate-limit message.
+    """
+
+
+def _is_content_filter(exc: Exception) -> bool:
+    blob = str(getattr(exc, "body", "")) + " " + str(exc)
+    blob = blob.lower()
+    return ("content_filter" in blob or "content management policy" in blob
+            or "responsibleaipolicy" in blob)
+
+
+def _wrap(exc: Exception) -> ModelError:
+    if _is_content_filter(exc):
+        return ContentFilterError(
+            "The model's safety filter blocked this text. Try rephrasing or "
+            "pasting a shorter excerpt of the message."
+        )
+    return ModelError(f"Model call failed: {exc}")
+
+
 def _get_token() -> str:
     token = os.environ.get("GITHUB_TOKEN", "").strip()
     if not token:
@@ -105,7 +130,7 @@ def cached_completion(messages: list, tools=None) -> tuple[dict, bool]:
     except ModelError:
         raise
     except Exception as exc:
-        raise ModelError(f"Model call failed: {exc}") from exc
+        raise _wrap(exc) from exc
 
     CACHE_DIR.mkdir(exist_ok=True)
     path.write_text(
@@ -137,7 +162,7 @@ def cached_chat(system: str, user: str) -> tuple[str, bool]:
     except ModelError:
         raise
     except Exception as exc:  # rate limit, network, auth — keep the app calm
-        raise ModelError(f"Model call failed: {exc}") from exc
+        raise _wrap(exc) from exc
 
     _write_cache(key, content)
     return content, False

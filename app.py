@@ -10,7 +10,7 @@ import json
 import streamlit as st
 
 from agent import foundry_iq, pipeline, search, verifier
-from agent.model import ModelError
+from agent.model import ContentFilterError, ModelError
 
 st.set_page_config(page_title="Day Zero Compass", page_icon="🛡️", layout="centered")
 
@@ -38,6 +38,12 @@ st.markdown(
       .vb-amber { background: #8a5a0a; }
       .vb-green { background: #1f6f43; }
       .vb-conf  { font-size: 0.8rem; font-weight: 600; opacity: 0.9; }
+      .trust-line { margin: -6px 0 10px 0; font-size: 0.86rem; color: #9aa6b2; }
+      .trust-badge {
+        display: inline-block; background: rgba(31,111,67,0.18); color: #4cc38a;
+        border: 1px solid rgba(76,195,138,0.45); border-radius: 999px;
+        padding: 1px 10px; font-size: 0.8rem; font-weight: 600; margin-right: 6px;
+      }
     </style>
     """,
     unsafe_allow_html=True,
@@ -47,6 +53,18 @@ st.title("🛡️ Day Zero Compass")
 st.markdown("**Is this opportunity real?** Paste any scholarship, grant, job, or link you "
             "got on WhatsApp and find out if it's real or a scam — why, and what to do "
             "instead. Built for early-stage tech learners in underserved Southeast Nigeria.")
+
+
+def trust_line() -> None:
+    """A single quiet, user-facing trust signal under the title (no dev plumbing)."""
+    kind, _ = foundry_iq.status()
+    label = ("Grounded on Microsoft Foundry IQ" if kind == "foundry"
+             else "Grounded on verified, cited sources")
+    st.markdown(f'<div class="trust-line"><span class="trust-badge">🛡️ {label}</span>'
+                "verified sources, cited — never invented.</div>", unsafe_allow_html=True)
+
+
+trust_line()
 
 mode = st.radio(
     "What do you need?",
@@ -82,10 +100,19 @@ def load_knowledge_or_stop() -> dict:
         st.stop()
 
 
-def grounding_notice() -> None:
-    """Show which knowledge layer grounds this session (Foundry IQ vs local)."""
-    kind, msg = foundry_iq.status()
-    (st.success if kind == "foundry" else st.info)("🔎 " + msg)
+def technical_details() -> None:
+    """Developer/judge-facing status, tucked away — not in the user's main view."""
+    with st.expander("⚙️ Technical details"):
+        _, grounding_msg = foundry_iq.status()
+        st.markdown(f"- **Knowledge grounding:** {grounding_msg}")
+        if search.is_available():
+            st.markdown("- **Live web search:** enabled (Tavily) — adds an unverified, "
+                        "scam-screened web tier.")
+        else:
+            st.markdown("- **Live web search:** off (optional). The app runs fully on the "
+                        "verified, cited knowledge base; web cross-checking is skipped.")
+        st.markdown("- **Caching:** every model call and retrieval is disk-cached, so "
+                    "repeat checks cost zero quota.")
 
 
 # ---------------------------------------------------------------------------
@@ -154,12 +181,6 @@ def render_what_to_do(verdict: dict) -> None:
 
 
 def render_hero() -> None:
-    grounding_notice()
-    if not search.is_available():
-        st.info("🛡️ Running in **grounded-only mode** — live web search is off "
-                "(no TAVILY_API_KEY). We check against our verified scam knowledge base "
-                "and red-flag heuristics; web cross-checking is skipped.")
-
     with st.form("scam_check"):
         pasted = st.text_area(
             "Paste the message, link, or offer you're unsure about:",
@@ -180,6 +201,12 @@ def render_hero() -> None:
     with st.spinner("Checking against known scams, red-flag heuristics, and the web…"):
         try:
             result = verifier.verify_opportunity(pasted.strip(), knowledge)
+        except ContentFilterError as e:
+            st.warning(f"⚠️ {e} This sometimes happens with forwarded scam text — it "
+                       "doesn't mean the message is safe. When in doubt, treat it as "
+                       "unsafe: don't click links, pay fees, or share bank/BVN/NIN details, "
+                       "and confirm on the official website yourself.")
+            return
         except ModelError as e:
             st.warning(f"The checker could not reach the model. {e} "
                        "If you've hit the daily free-tier limit, try again tomorrow — "
@@ -207,9 +234,7 @@ def render_hero() -> None:
     # Known-scam citation (verified tier)
     match = verdict["known_scam_match"]
     if match:
-        src = result.get("grounding_source", "local")
-        via = "Foundry IQ (Azure AI Search)" if src.startswith("foundry") else "knowledge base"
-        st.markdown(f"**📌 Matches a documented scam — retrieved via {via}**")
+        st.markdown("**📌 Matches a documented scam in our verified knowledge base**")
         st.success(f"**{match.get('title','Known scam')}** — "
                    f"[{match.get('source_url','source')}]({match.get('source_url','')})  \n"
                    f"`id: {match.get('id','')}`")
@@ -268,13 +293,7 @@ def render_advisor() -> None:
         return
 
     knowledge = load_knowledge_or_stop()
-    grounding_notice()
-
     live_mode = search.is_available()
-    if not live_mode:
-        st.info("🧭 Running in **grounded-only mode** — live web search is off "
-                "(no TAVILY_API_KEY). Recommendations come from the verified "
-                "knowledge base, fully cited.")
 
     # Step 1 — Assess
     with st.spinner("Step 1/4 — Assessing your profile…"):
@@ -310,7 +329,7 @@ def render_advisor() -> None:
     # then the separate LIVE tier from web search (never shown as verified).
     with st.spinner("Step 3/4 — Matching verified opportunities…"):
         try:
-            match_text, c3, match_source = pipeline.match(assessment, knowledge)
+            match_text, c3, _ = pipeline.match(assessment, knowledge)
         except ModelError as e:
             st.warning(f"The Match step failed: {e}")
             return
@@ -325,11 +344,8 @@ def render_advisor() -> None:
         st.markdown(step_header(3, "Match", c3 and c3b, match_searched),
                     unsafe_allow_html=True)
         st.markdown("**✅ Verified — from our checked sources**")
-        src_label = ("Foundry IQ (Azure AI Search)" if match_source.startswith("foundry")
-                     else "local verified knowledge base")
-        st.caption(f"Grounding retrieved via **{src_label}**. Recommendations come ONLY from the "
-                   "vetted knowledge, with citations. If nothing fits, the agent says so — it "
-                   "never invents an opportunity.")
+        st.caption("Recommendations come ONLY from the vetted knowledge base, with citations. "
+                   "If nothing fits, the agent says so — it never invents an opportunity.")
         st.success(match_text)
         if live_text:
             st.markdown("**🌐 Live — found online, unverified**")
@@ -380,6 +396,7 @@ else:
     render_advisor()
 
 st.divider()
+technical_details()
 st.caption("Day Zero Compass never invents scholarships, vouchers, deadlines, or links, "
            "and never gives a false 'all-clear'. Verified recommendations and known-scam "
            "matches come from its human-checked knowledge base, fully cited; anything found "
