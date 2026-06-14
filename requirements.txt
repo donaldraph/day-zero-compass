@@ -1,3 +1,4 @@
 streamlit>=1.40
 openai>=1.50
 tavily-python>=0.5
+azure-search-documents>=12.0

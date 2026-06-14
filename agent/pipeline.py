@@ -8,7 +8,7 @@ to name opportunities, so it cannot recommend anything outside the file.
 import json
 from pathlib import Path
 
-from agent import prompts, search
+from agent import foundry_iq, prompts, search
 from agent.model import cached_chat, cached_completion
 
 KNOWLEDGE_PATH = Path(__file__).resolve().parent.parent / "data" / "knowledge.json"
@@ -166,16 +166,35 @@ def screen_live(results: list[dict]) -> tuple[str, bool]:
     return _strip_fences(text), cached
 
 
-def match(assessment: dict, knowledge: dict) -> tuple[str, bool]:
-    opportunities = knowledge.get("opportunities", [])
-    if not opportunities:
-        return "No verified match found — the knowledge base has no opportunities yet.", True
+def _opportunity_query(assessment: dict) -> str:
+    """A retrieval query for the verified-opportunity grounding."""
+    bits = [assessment.get("target_track", ""), assessment.get("level", "")]
+    bits += assessment.get("known_skills", []) or []
+    bits += assessment.get("eligibility_signals", []) or []
+    bits.append("free certification voucher scholarship learning resource")
+    return " ".join(b for b in bits if b and b != "unknown").strip()
+
+
+def match(assessment: dict, knowledge: dict) -> tuple[str, bool, str]:
+    """Returns (text, from_cache, grounding_source).
+
+    Grounding comes from Foundry IQ (Azure AI Search) when configured, falling back
+    to data/knowledge.json. Either way the candidate set is a fixed VERIFIED list —
+    the model still recommends ONLY from it and cites id + source_url.
+    """
+    docs, source, kb_cached = foundry_iq.retrieve(
+        _opportunity_query(assessment), "opportunity", knowledge
+    )
+    if not docs:
+        return ("No verified match found — the knowledge base has no opportunities yet.",
+                True, source)
     user = (
         "Assessment JSON:\n" + json.dumps(assessment, indent=2)
         + "\n\nVERIFIED opportunities (recommend ONLY from this list):\n"
-        + json.dumps(opportunities, indent=2)
+        + json.dumps(docs, indent=2, ensure_ascii=False)
     )
-    return cached_chat(prompts.MATCH, user)
+    text, cached = cached_chat(prompts.MATCH, user)
+    return text, cached and kb_cached, source
 
 
 def verify(assessment: dict, knowledge: dict) -> tuple[str, bool]:

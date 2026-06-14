@@ -1,13 +1,18 @@
-"""Day Zero Compass — Streamlit UI + orchestration of the four visible agent steps."""
+"""Day Zero Compass — Streamlit UI.
+
+Two modes share one grounded spine:
+  🛡️ Check if an opportunity is real  (HERO / default) — paste-and-verify scam check
+  🧭 Plan my learning path            (secondary) — the four visible agent steps
+"""
 
 import json
 
 import streamlit as st
 
-from agent import pipeline, search
+from agent import foundry_iq, pipeline, search, verifier
 from agent.model import ModelError
 
-st.set_page_config(page_title="Day Zero Compass", page_icon="🧭", layout="centered")
+st.set_page_config(page_title="Day Zero Compass", page_icon="🛡️", layout="centered")
 
 st.markdown(
     """
@@ -23,28 +28,37 @@ st.markdown(
         border-radius: 6px; padding: 1px 8px; font-size: 0.75rem;
         margin-left: 8px; vertical-align: middle;
       }
+      .verdict-banner {
+        border-radius: 12px; padding: 18px 20px; margin: 8px 0 4px 0;
+        color: #fff; font-weight: 700;
+      }
+      .verdict-banner .vb-title { font-size: 1.5rem; line-height: 1.2; }
+      .verdict-banner .vb-summary { font-size: 1.0rem; font-weight: 500; margin-top: 6px; }
+      .vb-red   { background: #a01b1b; }
+      .vb-amber { background: #8a5a0a; }
+      .vb-green { background: #1f6f43; }
+      .vb-conf  { font-size: 0.8rem; font-weight: 600; opacity: 0.9; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-st.title("🧭 Day Zero Compass")
-st.markdown("**From Nothing, To Everything.** — grounded, cited guidance for early-stage "
-            "tech learners in underserved Southeast Nigeria.")
+st.title("🛡️ Day Zero Compass")
+st.markdown("**Is this opportunity real?** Paste any scholarship, grant, job, or link you "
+            "got on WhatsApp and find out if it's real or a scam — why, and what to do "
+            "instead. Built for early-stage tech learners in underserved Southeast Nigeria.")
 
-EXAMPLE = ("I'm 19, in Aba. I finished secondary school, I have a small Android phone and "
-           "sometimes my neighbour's laptop. Power goes out most days, data is expensive. "
-           "I know basic computer use and a little HTML. I want to get into cloud "
-           "engineering / SRE. I have no bank card that works for foreign payments.")
+mode = st.radio(
+    "What do you need?",
+    ["🛡️ Check if an opportunity is real", "🧭 Plan my learning path"],
+    index=0,
+    horizontal=True,
+)
 
-with st.form("intake"):
-    profile = st.text_area(
-        "Tell us about yourself — level, skills, goal, and your constraints "
-        "(money, power, bandwidth, payment access):",
-        value=EXAMPLE,
-        height=160,
-    )
-    run = st.form_submit_button("Run the Compass", type="primary", use_container_width=True)
+STANDING_CAPTION = ("This is guidance, not a guarantee. Always confirm on the official "
+                    "website before acting.")
+LIVE_CAPTION = ("We searched the web for current options. We have **NOT** verified "
+                "these — confirm on the official site before acting.")
 
 
 def badge(from_cache: bool) -> str:
@@ -60,16 +74,201 @@ def step_header(n: int, name: str, from_cache: bool, searched: bool = False) -> 
             f"{badge(from_cache)}{web_tag(searched)}")
 
 
-LIVE_CAPTION = ("We searched the web for current options. We have **NOT** verified "
-                "these — confirm on the official site before acting.")
-
-
-if run and profile.strip():
+def load_knowledge_or_stop() -> dict:
     try:
-        knowledge = pipeline.load_knowledge()
+        return pipeline.load_knowledge()
     except Exception:
         st.error("Could not load data/knowledge.json — check the file is valid.")
         st.stop()
+
+
+def grounding_notice() -> None:
+    """Show which knowledge layer grounds this session (Foundry IQ vs local)."""
+    kind, msg = foundry_iq.status()
+    (st.success if kind == "foundry" else st.info)("🔎 " + msg)
+
+
+# ---------------------------------------------------------------------------
+# HERO MODE — scam verifier
+# ---------------------------------------------------------------------------
+
+SCAM_EXAMPLE = (
+    "URGENT! President Tinubu has approved a N50,000 cash grant for all Nigerians. "
+    "Applications reopening NOW and closing today! Claim yours before it's gone. "
+    "Enter your full name, phone, home address and bank account details here: "
+    "http://tinubu-grant-portal.com.ng/claim. Forward to 10 people to activate."
+)
+
+_VB = {
+    "scam":       ("vb-red",   "🔴 LIKELY A SCAM"),
+    "suspicious": ("vb-amber", "🟠 SUSPICIOUS / CAN'T CONFIRM"),
+    "clear":      ("vb-green", "🟢 NO RED FLAGS FOUND"),
+}
+
+
+def render_verdict_banner(verdict: dict) -> None:
+    css, title = _VB.get(verdict["verdict"], _VB["suspicious"])
+    summary = verdict["summary"] or {
+        "scam": "This matches scam patterns — do not engage.",
+        "suspicious": "We can't confirm this is real — treat it as unsafe until you verify it.",
+        "clear": "No red flags found — still confirm on the official site yourself.",
+    }[verdict["verdict"]]
+    st.markdown(
+        f'<div class="verdict-banner {css}">'
+        f'<div class="vb-title">{title}</div>'
+        f'<div class="vb-summary">{summary}</div>'
+        f'<div class="vb-conf">Confidence: {verdict["confidence"]}</div>'
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_what_to_do(verdict: dict) -> None:
+    v = verdict["verdict"]
+    st.markdown("**✅ What to do**")
+    if v == "scam":
+        st.markdown(
+            "- **Do not engage.** Do not reply, click the link, send money, or enter any "
+            "details (bank, BVN, NIN, password, OTP).\n"
+            "- **Report it.** NITDA-CERRT — `cerrt@nitda.gov.ng`, **+234 817 877 4580**, "
+            "[www.cerrt.ng](https://www.cerrt.ng). For fake student-loan offers, report to "
+            "**NELFUND** and the **Nigeria Police Cybercrime Unit**.\n"
+            "- **If you already shared details:** change your email/bank/NIN passwords now and "
+            "tell your bank to secure the account — fraudsters often act within 24–48 hours."
+        )
+    elif v == "suspicious":
+        st.markdown(
+            "- **Treat it as unsafe until you confirm it.** Don't enter details or pay anything yet.\n"
+            "- **Verify it yourself:** open the issuer's **official website by typing the address "
+            "yourself** (don't trust the forwarded link), and cross-check the offer and any "
+            "deadline there. A real opportunity never needs your bank login or a fee to 'release' funds.\n"
+            "- If you can't confirm it on an official source, **don't act on it**."
+        )
+    else:  # clear
+        st.markdown(
+            "- **No red flags found — but this is not a guarantee it's real.** "
+            "Always confirm on the **official website** (type the address yourself) before acting.\n"
+            "- Never pay a fee to apply, and never share your bank login, BVN, NIN, password, or OTP.\n"
+            "- If anything later asks for those, stop and treat it as suspicious."
+        )
+
+
+def render_hero() -> None:
+    grounding_notice()
+    if not search.is_available():
+        st.info("🛡️ Running in **grounded-only mode** — live web search is off "
+                "(no TAVILY_API_KEY). We check against our verified scam knowledge base "
+                "and red-flag heuristics; web cross-checking is skipped.")
+
+    with st.form("scam_check"):
+        pasted = st.text_area(
+            "Paste the message, link, or offer you're unsure about:",
+            value=SCAM_EXAMPLE,
+            height=170,
+        )
+        run = st.form_submit_button("🛡️ Check if it's real", type="primary",
+                                    use_container_width=True)
+
+    if not run:
+        st.caption(STANDING_CAPTION)
+        return
+    if not pasted.strip():
+        st.warning("Please paste a message, link, or offer first.")
+        return
+
+    knowledge = load_knowledge_or_stop()
+    with st.spinner("Checking against known scams, red-flag heuristics, and the web…"):
+        try:
+            result = verifier.verify_opportunity(pasted.strip(), knowledge)
+        except ModelError as e:
+            st.warning(f"The checker could not reach the model. {e} "
+                       "If you've hit the daily free-tier limit, try again tomorrow — "
+                       "previously checked messages are served from cache.")
+            return
+
+    verdict = result["verdict"]
+
+    # 1 — Verdict banner
+    render_verdict_banner(verdict)
+    badges = badge(result["all_cached"]) + web_tag(result["searched_web"])
+    if badges.strip():
+        st.markdown(badges, unsafe_allow_html=True)
+
+    # 2 — Red-flags checklist (the "it shows its reasoning" moment)
+    st.markdown("**🚩 Red flags we checked**")
+    if verdict["red_flags"]:
+        st.markdown("\n".join(f"- ✅ {flag}" for flag in verdict["red_flags"]))
+    else:
+        st.markdown("- No strong red flags fired in the text we could read.")
+    ex = result["extraction"]
+    if ex.get("asks_for"):
+        st.caption("This message asks you to provide / do: " + ", ".join(ex["asks_for"]) + ".")
+
+    # Known-scam citation (verified tier)
+    match = verdict["known_scam_match"]
+    if match:
+        src = result.get("grounding_source", "local")
+        via = "Foundry IQ (Azure AI Search)" if src.startswith("foundry") else "knowledge base"
+        st.markdown(f"**📌 Matches a documented scam — retrieved via {via}**")
+        st.success(f"**{match.get('title','Known scam')}** — "
+                   f"[{match.get('source_url','source')}]({match.get('source_url','')})  \n"
+                   f"`id: {match.get('id','')}`")
+
+    # Web findings (always unverified)
+    if verdict["web_findings"]:
+        st.markdown("**🌐 Found online (unverified)**")
+        st.caption(LIVE_CAPTION)
+        st.warning("\n".join(
+            f"- {w.get('finding','')}" + (f" — {w['url']}" if w.get("url") else "")
+            for w in verdict["web_findings"]
+        ))
+
+    # 3 — What to do
+    render_what_to_do(verdict)
+
+    # 4 — A real alternative (verified, cited)
+    st.markdown("**🧭 Here's a real alternative**")
+    st.success(result["alternative"])
+
+    with st.expander("🔍 What we read from your message"):
+        st.json(ex)
+        if "_parse_note" in ex:
+            st.code(result["extraction_raw"])
+
+    st.divider()
+    st.caption(STANDING_CAPTION)
+
+
+# ---------------------------------------------------------------------------
+# ADVISOR MODE — the original four-step learning-path pipeline (unchanged)
+# ---------------------------------------------------------------------------
+
+ADVISOR_EXAMPLE = (
+    "I'm 19, in Aba. I finished secondary school, I have a small Android phone and "
+    "sometimes my neighbour's laptop. Power goes out most days, data is expensive. "
+    "I know basic computer use and a little HTML. I want to get into cloud "
+    "engineering / SRE. I have no bank card that works for foreign payments.")
+
+
+def render_advisor() -> None:
+    with st.form("intake"):
+        profile = st.text_area(
+            "Tell us about yourself — level, skills, goal, and your constraints "
+            "(money, power, bandwidth, payment access):",
+            value=ADVISOR_EXAMPLE,
+            height=160,
+        )
+        run = st.form_submit_button("Run the Compass", type="primary",
+                                    use_container_width=True)
+
+    if run and not profile.strip():
+        st.warning("Please enter a short profile first.")
+        return
+    if not run:
+        return
+
+    knowledge = load_knowledge_or_stop()
+    grounding_notice()
 
     live_mode = search.is_available()
     if not live_mode:
@@ -85,7 +284,7 @@ if run and profile.strip():
             st.warning(f"The Assess step could not reach the model. {e} "
                        "If you've hit the daily free-tier limit, try again tomorrow — "
                        "previously seen profiles are served from cache.")
-            st.stop()
+            return
     with st.expander("🔍 Step 1 — Assess", expanded=True):
         st.markdown(step_header(1, "Assess", c1), unsafe_allow_html=True)
         st.caption("What the agent understood about you.")
@@ -99,7 +298,7 @@ if run and profile.strip():
             plan_text, c2, plan_searched = pipeline.plan_with_search(assessment)
         except ModelError as e:
             st.warning(f"The Plan step failed: {e}")
-            st.stop()
+            return
     with st.expander("🗺️ Step 2 — Plan (next 90 days)", expanded=True):
         st.markdown(step_header(2, "Plan", c2, plan_searched), unsafe_allow_html=True)
         if plan_searched:
@@ -111,10 +310,10 @@ if run and profile.strip():
     # then the separate LIVE tier from web search (never shown as verified).
     with st.spinner("Step 3/4 — Matching verified opportunities…"):
         try:
-            match_text, c3 = pipeline.match(assessment, knowledge)
+            match_text, c3, match_source = pipeline.match(assessment, knowledge)
         except ModelError as e:
             st.warning(f"The Match step failed: {e}")
-            st.stop()
+            return
     live_text, live_results, match_searched, c3b = "", [], False, True
     if live_mode:
         with st.spinner("Step 3/4 — Searching the web for current extras…"):
@@ -126,8 +325,11 @@ if run and profile.strip():
         st.markdown(step_header(3, "Match", c3 and c3b, match_searched),
                     unsafe_allow_html=True)
         st.markdown("**✅ Verified — from our checked sources**")
-        st.caption("Recommendations come ONLY from the vetted knowledge file, with citations. "
-                   "If nothing fits, the agent says so — it never invents an opportunity.")
+        src_label = ("Foundry IQ (Azure AI Search)" if match_source.startswith("foundry")
+                     else "local verified knowledge base")
+        st.caption(f"Grounding retrieved via **{src_label}**. Recommendations come ONLY from the "
+                   "vetted knowledge, with citations. If nothing fits, the agent says so — it "
+                   "never invents an opportunity.")
         st.success(match_text)
         if live_text:
             st.markdown("**🌐 Live — found online, unverified**")
@@ -141,7 +343,7 @@ if run and profile.strip():
             verify_text, c4 = pipeline.verify(assessment, knowledge)
         except ModelError as e:
             st.warning(f"The Verify step failed: {e}")
-            st.stop()
+            return
         screen_text, c4b = "", True
         if live_results:
             try:
@@ -166,11 +368,20 @@ if run and profile.strip():
     else:
         st.success("Done. Every recommendation above is grounded in the vetted knowledge "
                    "file — nothing is invented.")
-elif run:
-    st.warning("Please enter a short profile first.")
+
+
+# ---------------------------------------------------------------------------
+# Route
+# ---------------------------------------------------------------------------
+
+if mode.startswith("🛡️"):
+    render_hero()
+else:
+    render_advisor()
 
 st.divider()
-st.caption("Day Zero Compass never invents scholarships, vouchers, deadlines, or links. "
-           "Verified recommendations come from its human-checked knowledge base, fully "
-           "cited; anything found by live web search is always marked unverified and "
-           "screened for scam signals. Always confirm on the issuer's official website.")
+st.caption("Day Zero Compass never invents scholarships, vouchers, deadlines, or links, "
+           "and never gives a false 'all-clear'. Verified recommendations and known-scam "
+           "matches come from its human-checked knowledge base, fully cited; anything found "
+           "by live web search is always marked unverified. Always confirm on the official "
+           "website before acting.")
