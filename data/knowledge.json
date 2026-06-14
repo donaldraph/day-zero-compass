@@ -60,6 +60,17 @@
       "source_url": "https://azure.microsoft.com/free/students/",
       "secondary_source_url": "https://signup.azure.com/studentverification?offerType=1",
       "verified_on": "2026-06-12"
+    },
+    {
+      "id": "microsoft-ai-skills-fest",
+      "title": "Microsoft AI Skills Fest — free official AI learning event (verified-legitimate)",
+      "type": "program",
+      "legitimacy": "verified-legitimate",
+      "fits": ["ai", "beginner", "certification", "learning", "event"],
+      "official_domains": ["aka.ms", "microsoft.com"],
+      "summary": "PLACEHOLDER — confirm details before relying on this. Microsoft AI Skills Fest is Microsoft's official, free global AI learning event: time-limited challenges, live/on-demand sessions, and skill-building on Microsoft Learn. Registration and participation are free on the official Microsoft site; the canonical link is the aka.ms short link. Use this entry to POSITIVELY CONFIRM a pasted message that names 'AI Skills Fest' AND points to an official aka.ms / microsoft.com link. Verify the current event dates/deadline on the official page before acting.",
+      "source_url": "https://aka.ms/AISkillsFest",
+      "verified_on": "2026-06-14"
     }
   ],
 

@@ -67,13 +67,30 @@ def _normalize_verdict(data: dict) -> dict:
         red_flags = [str(red_flags)]
     red_flags = [str(f) for f in red_flags if str(f).strip()]
 
-    match = data.get("known_scam_match")
-    if not isinstance(match, dict) or not match.get("id"):
-        match = None
+    def _cite(obj):
+        return obj if (isinstance(obj, dict) and obj.get("id")) else None
 
-    # Caution-only backstop: a green light must have no flags and no scam match.
-    if verdict == "clear" and (red_flags or match):
-        verdict = "scam" if match else "suspicious"
+    scam_match = _cite(data.get("known_scam_match"))
+    legit_match = _cite(data.get("known_legit_match"))
+
+    # Caution-only backstops, never toward reassurance:
+    #  - a human-verified KNOWN_SCAMS match is authoritative -> 🔴
+    #  - a green light must carry no red flags
+    if scam_match:
+        verdict = "scam"
+    elif verdict == "clear" and red_flags:
+        verdict = "suspicious"
+
+    live = data.get("live_confirmation")
+    if isinstance(live, dict) and str(live.get("status", "")).strip().lower() in {
+        "confirms_real", "confirms_scam", "inconclusive"
+    }:
+        live = {"status": str(live["status"]).strip().lower(),
+                "statement": str(live.get("statement", "")).strip(),
+                "url": str(live.get("url", "")).strip(),
+                "deadline": str(live.get("deadline", "")).strip()}
+    else:
+        live = None
 
     web_findings = data.get("web_findings") or []
     if not isinstance(web_findings, list):
@@ -93,14 +110,17 @@ def _normalize_verdict(data: dict) -> dict:
         "verdict": verdict,
         "confidence": confidence,
         "summary": summary,
+        "reasoning": str(data.get("reasoning", "")).strip(),
         "red_flags": red_flags,
-        "known_scam_match": match,
+        "known_scam_match": scam_match,
+        "known_legit_match": legit_match,
+        "live_confirmation": live,
         "web_findings": web_findings,
     }
 
 
-def _verdict_query(extraction: dict) -> str:
-    """A retrieval query to pull the most relevant known scams for this message."""
+def _scam_query(extraction: dict) -> str:
+    """Retrieval query to pull the most relevant KNOWN_SCAMS for this message."""
     bits = [extraction.get("claimed_offer", ""), extraction.get("sender_brand", ""),
             extraction.get("domain", "")]
     bits += extraction.get("asks_for", []) or []
@@ -108,19 +128,32 @@ def _verdict_query(extraction: dict) -> str:
     return " ".join(b for b in bits if b).strip()
 
 
-def check_verdict(extraction: dict, knowledge: dict) -> tuple[dict, bool, bool, list[dict], str]:
-    """Check the extraction against known scams + heuristics (+ optional web search).
+def _legit_query(extraction: dict) -> str:
+    """Retrieval query to pull matching KNOWN_LEGIT programs (positive confirmation)."""
+    bits = [extraction.get("claimed_offer", ""), extraction.get("sender_brand", ""),
+            extraction.get("domain", ""), extraction.get("hoped_for", "")]
+    bits.append("official verified program")
+    return " ".join(b for b in bits if b).strip()
 
-    Known-scam grounding is retrieved from Foundry IQ (Azure AI Search) when
-    configured, falling back to data/knowledge.json.
+
+def check_verdict(extraction: dict, knowledge: dict) -> tuple[dict, bool, bool, list[dict], str]:
+    """Weigh evidence: known scams + known-legit programs + heuristics (+ live search).
+
+    Grounding for BOTH tiers is retrieved from Foundry IQ (Azure AI Search) when
+    configured, falling back to data/knowledge.json — so the agent can both match
+    documented scams and positively confirm verified-legitimate programs.
     Returns (verdict_dict, from_cache, searched_web, raw_web_results, grounding_source).
     """
-    # Documented scams + access pitfalls are the verified scam context.
-    known, kb_source, _ = foundry_iq.retrieve(_verdict_query(extraction), "pitfall", knowledge)
+    scams, src_s, _ = foundry_iq.retrieve(_scam_query(extraction), "pitfall", knowledge)
+    legit, src_l, _ = foundry_iq.retrieve(_legit_query(extraction), "opportunity", knowledge)
+    kb_source = src_s if src_s.startswith("foundry") else src_l
     user = (
         "Pasted-message extraction:\n" + json.dumps(extraction, indent=2, ensure_ascii=False)
         + "\n\nKNOWN_SCAMS / KNOWN_PITFALLS (cite exact id + source_url on a match):\n"
-        + json.dumps(known, indent=2, ensure_ascii=False)
+        + json.dumps(scams, indent=2, ensure_ascii=False)
+        + "\n\nKNOWN_LEGIT — verified-legitimate programs (confirm a match by program "
+        "name + official domain; cite exact id + source_url):\n"
+        + json.dumps(legit, indent=2, ensure_ascii=False)
     )
 
     searched, raw_results = False, []
@@ -137,7 +170,7 @@ def check_verdict(extraction: dict, knowledge: dict) -> tuple[dict, bool, bool, 
             "verdict": "suspicious", "confidence": "low",
             "summary": "We could not automatically read this one — treat it as unsafe "
                        "until you confirm it yourself.",
-            "red_flags": [], "known_scam_match": None, "web_findings": [],
+            "red_flags": [],
         }
     return _normalize_verdict(parsed), cached, searched, raw_results, kb_source
 

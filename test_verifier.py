@@ -69,6 +69,12 @@ INPUTS = {
         "Register free at https://www.microsoft.com/trainingdays to attend the live sessions "
         "and earn a certification exam voucher. No payment required."
     ),
+    "4-AI-SKILLS-FEST (official aka.ms, fill dashboard form)": (
+        "🎉 Microsoft AI Skills Fest is here! Join the free global AI learning event. "
+        "Register and complete the challenge on your Microsoft Learn dashboard at "
+        "https://aka.ms/AISkillsFest before the deadline on 8 July 2026 to earn your badge. "
+        "No payment, no card — just sign in with your account and fill the form."
+    ),
 }
 
 
@@ -81,15 +87,19 @@ def run_one(label, text, knowledge):
     print("-" * 78)
     print(f"VERDICT      : {v['verdict']}   (confidence: {v['confidence']})")
     print(f"SUMMARY      : {v['summary']}")
+    print(f"REASONING    : {v.get('reasoning')}")
     print(f"RED FLAGS    : {v['red_flags']}")
     print(f"SCAM MATCH   : {v['known_scam_match']}")
-    print(f"WEB FINDINGS : {v['web_findings']}")
-    print(f"EXTRACTION   : asks_for={res['extraction'].get('asks_for')} "
-          f"domain={res['extraction'].get('domain')!r} "
-          f"hoped_for={res['extraction'].get('hoped_for')!r} "
-          f"elig={res['extraction'].get('eligibility_signals')}")
-    print("REAL ALTERNATIVE:")
-    print(res["alternative"])
+    print(f"LEGIT MATCH  : {v.get('known_legit_match')}")
+    print(f"LIVE CONFIRM : {v.get('live_confirmation')}")
+    print(f"GROUNDING    : {res.get('grounding_source')}")
+    print(f"EXTRACTION   : domain={res['extraction'].get('domain')!r} "
+          f"hoped_for={res['extraction'].get('hoped_for')!r}")
+    evidence = []
+    if v['red_flags'] or v.get('reasoning'): evidence.append("reasoning")
+    if v['known_scam_match'] or v.get('known_legit_match'): evidence.append("Foundry IQ KB")
+    if v.get('live_confirmation'): evidence.append("Tavily live")
+    print(f"EVIDENCE FIRED: {evidence}")
     print(f"\n[quota] live completions={COUNTS['completions']}  "
           f"web searches={COUNTS['searches']}  searched_web={res['searched_web']}  "
           f"all_cached={res['all_cached']}  live_mode={res['live_mode']}")

@@ -234,26 +234,47 @@ def render_hero() -> None:
     if badges.strip():
         st.markdown(badges, unsafe_allow_html=True)
 
-    # 2 — Red-flags checklist (the "it shows its reasoning" moment)
+    # 2 — Our reasoning (evidence weighed, not keywords fired)
+    if verdict.get("reasoning"):
+        st.markdown("**🧠 Our reasoning**")
+        st.markdown(f"> {verdict['reasoning']}")
+
     st.markdown("**🚩 Red flags we checked**")
     if verdict["red_flags"]:
         st.markdown("\n".join(f"- ✅ {flag}" for flag in verdict["red_flags"]))
     else:
-        st.markdown("- No strong red flags fired in the text we could read.")
+        st.markdown("- No strong red flags fired in the message we could read.")
     ex = result["extraction"]
-    if ex.get("asks_for"):
-        st.caption("This message asks you to provide / do: " + ", ".join(ex["asks_for"]) + ".")
 
-    # Known-scam citation (verified tier)
-    match = verdict["known_scam_match"]
-    if match:
+    # 3 — Evidence sources: KB match (Foundry IQ) and live confirmation (Tavily)
+    scam_match = verdict["known_scam_match"]
+    legit_match = verdict.get("known_legit_match")
+    if scam_match:
         st.markdown("**📌 Matches a documented scam in our verified knowledge base**")
-        st.success(f"**{match.get('title','Known scam')}** — "
-                   f"[{match.get('source_url','source')}]({match.get('source_url','')})  \n"
-                   f"`id: {match.get('id','')}`")
+        st.error(f"**{scam_match.get('title','Known scam')}** — "
+                 f"[official source]({scam_match.get('source_url','')})  \n"
+                 f"{scam_match.get('source_url','')}")
+    elif legit_match:
+        st.markdown("**✅ Matches a verified program in our knowledge base**")
+        st.success(f"**{legit_match.get('title','Verified program')}** — "
+                   f"[official link]({legit_match.get('source_url','')})  \n"
+                   f"{legit_match.get('source_url','')}")
 
-    # Web findings (always unverified)
-    if verdict["web_findings"]:
+    live = verdict.get("live_confirmation")
+    if live:
+        icon = {"confirms_real": "🌐 ✅", "confirms_scam": "🌐 🚩",
+                "inconclusive": "🌐 ❔"}.get(live["status"], "🌐")
+        st.markdown(f"**{icon} Live verification (web-sourced)**")
+        st.caption("Independently checked on the web — lower trust than our verified "
+                   "knowledge base, but it explains the verdict. Confirm on the official site.")
+        body = live["statement"] or ""
+        if live.get("deadline"):
+            body += f"\n\n**Deadline seen:** {live['deadline']}"
+        if live.get("url"):
+            body += f"\n\n{live['url']}"
+        (st.success if live["status"] == "confirms_real"
+         else st.error if live["status"] == "confirms_scam" else st.info)(body)
+    elif verdict["web_findings"]:
         st.markdown("**🌐 Found online (unverified)**")
         st.caption(LIVE_CAPTION)
         st.warning("\n".join(
@@ -261,7 +282,7 @@ def render_hero() -> None:
             for w in verdict["web_findings"]
         ))
 
-    # 3 — What to do
+    # 4 — What to do
     render_what_to_do(verdict)
 
     # 4 — A real alternative (verified, cited)
