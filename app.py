@@ -50,9 +50,20 @@ st.markdown(
 )
 
 st.title("🛡️ Day Zero Compass")
-st.markdown("**Is this opportunity real?** Paste any scholarship, grant, job, or link you "
-            "got on WhatsApp and find out if it's real or a scam — why, and what to do "
-            "instead. Built for early-stage tech learners in underserved Southeast Nigeria.")
+
+# Subtitle slot is filled after the mode is known so it swaps with the toggle,
+# while keeping the page order: title → subtitle → trust line → mode picker.
+subtitle_slot = st.empty()
+
+SUBTITLES = {
+    "🛡️ Check if an opportunity is real":
+        "**Is this opportunity real?** Paste any scholarship, grant, job, or link you got "
+        "on WhatsApp and find out if it's real or a scam — why, and what to do instead.",
+    "🧭 Plan my learning path":
+        "**Where are you starting from?** Tell me your level, goals, and constraints, and "
+        "I'll map a real, step-by-step path into tech — with verified, cited resources, "
+        "not invented ones.",
+}
 
 
 def trust_line() -> None:
@@ -72,6 +83,8 @@ mode = st.radio(
     index=0,
     horizontal=True,
 )
+
+subtitle_slot.markdown(SUBTITLES[mode])
 
 STANDING_CAPTION = ("This is guidance, not a guarantee. Always confirm on the official "
                     "website before acting.")
