@@ -204,7 +204,18 @@ def _build_index(knowledge: dict) -> bool:
     index_client.create_or_update_index(index)
 
     search_client = SearchClient(endpoint=_endpoint(), index_name=INDEX_NAME, credential=cred)
-    search_client.merge_or_upload_documents(documents=_all_docs(knowledge))
+    docs = _all_docs(knowledge)
+    # Delete docs that were removed from knowledge.json — merge_or_upload only upserts,
+    # so without this a removed entry would linger in the index and keep matching.
+    new_ids = {d["id"] for d in docs}
+    try:
+        existing = [r["id"] for r in search_client.search(search_text="*", select=["id"], top=1000)]
+        stale = [{"id": i} for i in existing if i not in new_ids]
+        if stale:
+            search_client.delete_documents(documents=stale)
+    except Exception:
+        pass  # first build (empty index) or transient — upload below still corrects content
+    search_client.merge_or_upload_documents(documents=docs)
 
     # Knowledge source (points the Foundry IQ layer at our index). Best-effort —
     # if the SDK/service shape differs, semantic search on the index still works.

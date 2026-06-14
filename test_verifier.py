@@ -75,6 +75,12 @@ INPUTS = {
         "https://aka.ms/AISkillsFest before the deadline on 8 July 2026 to earn your badge. "
         "No payment, no card — just sign in with your account and fill the form."
     ),
+    "5-NEW-SCAM (never pre-loaded — structural only)": (
+        "CONGRATULATIONS! You have been selected for the 2026 Shell Nigeria Youth "
+        "Empowerment Grant of N250,000. To claim, pay a N5,000 processing fee and submit "
+        "your BVN and bank account number at http://shell-grant-ng.online/verify within "
+        "24 hours or your slot will be given away."
+    ),
 }
 
 
