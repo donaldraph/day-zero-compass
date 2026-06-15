@@ -98,6 +98,23 @@ Keys are read from the environment first, then Streamlit secrets, so the same na
 
 ## About Day Zero
 
-Day Zero is a builders' community in Southeast Nigeria. We meet people where they are, often at zero, and help them build from there. Day Zero Compass is one piece of that: a way to tell a real chance from someone trying to rob you, and to find the next real step.
+**From Nothing, To Everything.** Every expert was once a beginner. Every success story started with someone who didn't know what they were doing but started anyway. That's Day Zero.
 
-**From Nothing, To Everything.**
+We're a community of builders, learners, and doers across Nigeria who refuse to wait until we're ready. We show up. We learn out loud. We build in public. And we lift each other as we climb.
+
+Our workshops and events teach real skills (AI tools, cloud technology, digital skills) to real people. Whether you're a university student writing your first line of code, a trader looking to automate your business, a civil servant learning to work smarter, or you're switching careers at 30 and wondering if it's too late. (It's not. It's Day Zero.)
+
+You won't find polished experts talking down to you here. You'll find people one or two steps ahead reaching back to pull you forward.
+
+What we do:
+
+- Hands-on workshops where you actually build things.
+- Community learning groups that keep you accountable.
+- Career mentorship from people who've walked the path.
+- Events for students, professionals, business owners, creatives, anyone hungry to grow.
+
+What day is it? DAY ZERO. What do we do? START. LEARN. GROW. How do we do it? NO SHORTCUTS. From nothing? EVERYTHING.
+
+We started in Anambra State. We're building across Southeast Nigeria. But this movement has no walls. If you're ready to start, you're one of us.
+
+Your Day Zero is today.
