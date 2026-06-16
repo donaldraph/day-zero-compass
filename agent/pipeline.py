@@ -52,6 +52,38 @@ def _strip_fences(text: str) -> str:
     return text.strip()
 
 
+def _tool_call_queries(arguments: str) -> list[str]:
+    """Pull the search query/queries out of a web_search tool call.
+
+    Handles the normal {"query": "..."} shape AND GPT-4o's
+    multi_tool_use.parallel wrapper, which packs several parallel calls into a
+    single tool_call:
+        {"tool_uses": [{"recipient_name": "functions.web_search",
+                        "parameters": {"query": "..."}}, ...]}.
+    Without the wrapper handling that nested form has no top-level "query", so
+    the search silently ran on an empty string and Tavily never fired.
+    """
+    try:
+        data = json.loads(arguments)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    if not isinstance(data, dict):
+        return []
+    q = data.get("query")
+    if isinstance(q, str) and q.strip():
+        return [q.strip()]
+    queries = []
+    for use in data.get("tool_uses") or []:
+        if not isinstance(use, dict):
+            continue
+        params = use.get("parameters") or use.get("arguments") or {}
+        if isinstance(params, dict):
+            qq = params.get("query")
+            if isinstance(qq, str) and qq.strip():
+                queries.append(qq.strip())
+    return queries
+
+
 def _tool_chat(system: str, user: str) -> tuple[str, bool, bool, list[dict]]:
     """Tool-calling loop, capped at MAX_SEARCHES_PER_STEP web searches.
 
@@ -87,18 +119,19 @@ def _tool_chat(system: str, user: str) -> tuple[str, bool, bool, list[dict]]:
             }
         )
         for tc in tool_calls:
-            if searches_done < MAX_SEARCHES_PER_STEP:
-                try:
-                    query = json.loads(tc["arguments"]).get("query", "")
-                except (json.JSONDecodeError, AttributeError):
-                    query = ""
-                results, res_cached = search.web_search(query)
-                all_cached = all_cached and (res_cached or not results)
-                searched = True
+            # One tool message per tool_call_id is required, but a single call
+            # may carry several queries (the multi_tool_use.parallel wrapper) —
+            # run each against the shared budget and aggregate their results.
+            results: list[dict] = []
+            for query in _tool_call_queries(tc.get("arguments", "")):
+                if searches_done >= MAX_SEARCHES_PER_STEP:
+                    break
+                found, res_cached = search.web_search(query)
+                all_cached = all_cached and (res_cached or not found)
+                searched = True  # only set when a real, non-empty query runs
                 searches_done += 1
-                results_used.extend(results)
-            else:
-                results = []
+                results.extend(found)
+            results_used.extend(results)
             messages.append(
                 {
                     "role": "tool",
@@ -116,30 +149,51 @@ def assess(profile: str) -> tuple[dict, str, bool]:
     except json.JSONDecodeError:
         assessment = {"level": "unknown", "known_skills": [], "target_track": "unknown",
                       "constraints": {"money": "unknown", "power": "unknown",
-                                      "bandwidth": "unknown", "payment_access": "unknown"},
+                                      "bandwidth": "unknown", "payment_access": "unknown",
+                                      "device": "unknown"},
                       "eligibility_signals": [],
                       "_parse_note": "model output was not valid JSON; shown raw below"}
     return assessment, raw, cached
 
 
-def plan(assessment: dict) -> tuple[str, bool]:
-    user = "Assessment JSON:\n" + json.dumps(assessment, indent=2)
+def _plan_user(assessment: dict, knowledge: dict) -> tuple[str, bool]:
+    """Build the Plan user message, grounded in Foundry IQ verified resources.
+
+    Returns (user_message, kb_from_cache). The same VERIFIED list the Match step
+    uses is handed to the planner so it can cite real, recommendable resources and
+    gate student-only items — never invent a named scholarship/voucher.
+    """
+    docs, _source, kb_cached = foundry_iq.retrieve(
+        _opportunity_query(assessment), "opportunity", knowledge
+    )
+    user = (
+        "Assessment JSON (ONE person — write only for them):\n"
+        + json.dumps(assessment, indent=2)
+        + "\n\nVERIFIED free resources you may cite (cite id + source_url exactly; "
+        "recommend named programs ONLY from here; gate student-only items on "
+        "eligibility_signals):\n" + json.dumps(docs, indent=2, ensure_ascii=False)
+    )
+    return user, kb_cached
+
+
+def plan(assessment: dict, knowledge: dict) -> tuple[str, bool]:
+    user, kb_cached = _plan_user(assessment, knowledge)
     text, cached = cached_chat(prompts.PLAN, user)
-    return _strip_fences(text), cached
+    return _strip_fences(text), cached and kb_cached
 
 
-def plan_with_search(assessment: dict) -> tuple[str, bool, bool]:
-    """Plan step with optional live search. Returns (text, from_cache, searched_web).
+def plan_with_search(assessment: dict, knowledge: dict) -> tuple[str, bool, bool]:
+    """Plan step grounded in Foundry IQ, with optional live search for current resources.
 
-    Falls back to the grounded-only plan() — same prompt, same cache keys —
-    whenever search is unavailable.
+    Returns (text, from_cache, searched_web). Falls back to the grounded-only plan()
+    whenever live search is unavailable.
     """
     if not search.is_available():
-        text, cached = plan(assessment)
+        text, cached = plan(assessment, knowledge)
         return text, cached, False
-    user = "Assessment JSON:\n" + json.dumps(assessment, indent=2)
+    user, kb_cached = _plan_user(assessment, knowledge)
     text, cached, searched, _ = _tool_chat(prompts.PLAN_LIVE, user)
-    return _strip_fences(text), cached, searched
+    return _strip_fences(text), cached and kb_cached, searched
 
 
 def match_live(assessment: dict) -> tuple[str, bool, bool, list[dict]]:
