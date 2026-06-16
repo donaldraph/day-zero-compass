@@ -225,6 +225,7 @@ def verify_opportunity(pasted_text: str, knowledge: dict) -> dict:
         "alternative": alt_text,
         "searched_web": searched,
         "live_mode": search.is_available(),
+        "live_error": search.last_error() if searched else None,
         "grounding_source": kb_source,
         "all_cached": c_extract and c_verdict and c_alt,
     }
