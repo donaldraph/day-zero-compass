@@ -118,9 +118,12 @@ def technical_details() -> None:
     with st.expander("⚙️ Technical details"):
         _, grounding_msg = foundry_iq.status()
         st.markdown(f"- **Knowledge grounding:** {grounding_msg}")
-        if search.is_available():
+        live_ok, live_msg = search.status()
+        if live_ok:
             st.markdown("- **Live web search:** enabled (Tavily) — adds an unverified, "
                         "scam-screened web tier.")
+        elif search.is_available():
+            st.markdown(f"- **Live web search:** ⚠️ {live_msg}")
         else:
             st.markdown("- **Live web search:** off (optional). The app runs fully on the "
                         "verified, cited knowledge base; web cross-checking is skipped.")
@@ -282,6 +285,14 @@ def render_hero() -> None:
             for w in verdict["web_findings"]
         ))
 
+    # Non-silent degradation: a live check was attempted but the tier is broken
+    # (e.g. invalid key). Say so, rather than passing the verdict off as live-confirmed.
+    if result.get("live_error"):
+        st.markdown("**🌐 ⚠️ Live verification couldn't run**")
+        st.warning(result["live_error"] + "  \nThis verdict rests on the verified "
+                   "knowledge base and structural reasoning only — it was **not** "
+                   "live-confirmed on the web.")
+
     # 4 — What to do
     render_what_to_do(verdict)
 
@@ -348,7 +359,7 @@ def render_advisor() -> None:
     # Step 2 — Plan (may consult live web search for current resources)
     with st.spinner("Step 2/4 — Building your 90-day plan…"):
         try:
-            plan_text, c2, plan_searched = pipeline.plan_with_search(assessment)
+            plan_text, c2, plan_searched = pipeline.plan_with_search(assessment, knowledge)
         except ModelError as e:
             st.warning(f"The Plan step failed: {e}")
             return
